@@ -1,0 +1,131 @@
+/* Plain CSS only: the Kobo browser is an old WebKit on an e-ink screen. */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #000;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+h1 {
+  font-size: 28px;
+  margin: 0 0 16px;
+}
+
+a {
+  color: #000;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin: 20px 0 8px;
+}
+
+.lead {
+  font-size: 22px;
+}
+
+.small {
+  font-size: 17px;
+}
+
+.code {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 72px;
+  font-weight: bold;
+  letter-spacing: 16px;
+  text-align: center;
+  border: 4px solid #000;
+  padding: 12px 0 12px 16px;
+  margin: 8px 0 20px;
+}
+
+.code-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 48px;
+  letter-spacing: 12px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 12px;
+  border: 3px solid #000;
+  border-radius: 0;
+}
+
+input[type="file"] {
+  display: block;
+  width: 100%;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 16px 0;
+  padding: 18px 12px;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  text-decoration: none;
+  color: #fff;
+  background: #000;
+  border: 3px solid #000;
+  border-radius: 0;
+  -webkit-appearance: none;
+}
+
+.button.secondary {
+  color: #000;
+  background: #fff;
+  font-size: 18px;
+  padding: 12px;
+}
+
+.button.download {
+  font-size: 32px;
+  padding: 28px 12px;
+}
+
+.button[disabled] {
+  opacity: 0.6;
+}
+
+.message {
+  border: 2px solid #000;
+  padding: 12px;
+  font-weight: bold;
+}
+
+.status {
+  border: 2px dashed #000;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.status-ready, .status-downloaded {
+  border-style: solid;
+}
+
+progress {
+  display: block;
+  width: 100%;
+  height: 20px;
+}
+
+[hidden] {
+  display: none !important;
+}

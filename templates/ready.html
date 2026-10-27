@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Download {{ room.safe_name }}{% endblock %}
+{% block content %}
+<h1>Your book is ready</h1>
+
+<p class="lead"><strong>{{ room.original_name }}</strong><br>{{ size }}</p>
+
+<p><a class="button download" href="{{ download_url }}">Download</a></p>
+
+<p class="small">Tap Download, then confirm the prompt. The book will appear in your library.
+{% if delete_after_download %}It is removed from the server after download.{% else %}Available for {{ expires_in }} more.{% endif %}</p>
+
+<p class="small">File: {{ room.safe_name }}</p>
+<p><a href="/get">Enter a different code</a></p>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Get a book{% endblock %}
+{% block content %}
+<h1>Get a book</h1>
+
+{% if message %}<p class="message">{{ message }}</p>{% endif %}
+{% if retry_url %}<p><a class="button" href="{{ retry_url }}">Check again</a></p>{% endif %}
+
+<form method="get" action="/get">
+  <label for="code">Enter the 4-character code</label>
+  <input type="text" id="code" name="code" class="code-input" maxlength="8"
+         value="{{ entered or '' }}" autocomplete="off" autocorrect="off"
+         autocapitalize="characters" spellcheck="false" required>
+  <button type="submit" class="button">Find book</button>
+</form>
+{% endblock %}

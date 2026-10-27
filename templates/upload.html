@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Send a book to your Kobo</h1>
+
+<p class="lead">On your Kobo, open <strong>{{ host }}/get</strong> and enter:</p>
+<div class="code" aria-label="Room code">{{ room.code }}</div>
+
+{% if error %}<p class="message error" id="error">{{ error }}</p>{% else %}<p class="message error" id="error" hidden></p>{% endif %}
+
+<div class="status status-{{ status.state }}" id="status">
+  {% if status.state == "waiting" %}
+    Waiting for a file.
+  {% elif status.state == "ready" %}
+    Ready: <strong>{{ status.name }}</strong> ({{ status.size }}). Waiting for Kobo.
+  {% elif status.state == "downloaded" %}
+    Downloaded {{ status.downloads }}&times;: <strong>{{ status.name }}</strong>.
+  {% else %}
+    Downloaded and removed.
+  {% endif %}
+</div>
+
+<form id="upload-form" method="post" action="/api/rooms/{{ room.code }}/upload" enctype="multipart/form-data">
+  <label for="file">EPUB or PDF (max {{ max_upload_mb }} MB)</label>
+  <input type="file" id="file" name="file" accept="{{ accept }}" required>
+  <button type="submit" class="button" id="upload-button">Upload</button>
+  <progress id="progress" max="100" value="0" hidden></progress>
+</form>
+
+<p class="small">Code expires in <span id="expires">{{ status.expires_in }}</span>. A new upload replaces the current file.
+  <a href="/">Refresh</a></p>
+
+<form method="post" action="/new">
+  <button type="submit" class="button secondary">Start over with a new code</button>
+</form>
+
+<script>
+(function () {
+  var code = {{ room.code | tojson }};
+  var statusEl = document.getElementById("status");
+  var errorEl = document.getElementById("error");
+  var expiresEl = document.getElementById("expires");
+  var form = document.getElementById("upload-form");
+  var button = document.getElementById("upload-button");
+  var progress = document.getElementById("progress");
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function render(s) {
+    var html;
+    if (s.state === "waiting") html = "Waiting for a file.";
+    else if (s.state === "ready") html = "Ready: <strong>" + escapeHtml(s.name) + "</strong> (" + escapeHtml(s.size) + "). Waiting for Kobo.";
+    else if (s.state === "downloaded") html = "Downloaded " + s.downloads + "&times;: <strong>" + escapeHtml(s.name) + "</strong>.";
+    else if (s.state === "consumed") html = "Downloaded and removed.";
+    else { window.location.href = "/?error=expired"; return; }
+    statusEl.className = "status status-" + s.state;
+    statusEl.innerHTML = html;
+    if (s.expires_in) expiresEl.textContent = s.expires_in;
+  }
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+  }
+
+  function poll() {
+    fetch("/api/rooms/" + code + "/status", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .catch(function () {});
+  }
+  setInterval(poll, 4000);
+
+  if (!window.XMLHttpRequest || !window.FormData) return;
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var input = document.getElementById("file");
+    if (!input.files.length) { showError("Choose a file first."); return; }
+    errorEl.hidden = true;
+    button.disabled = true;
+    button.textContent = "Uploading…";
+    progress.hidden = false;
+    progress.value = 0;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", form.action);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) progress.value = Math.round((e.loaded / e.total) * 100);
+    };
+    xhr.onload = function () {
+      button.disabled = false;
+      button.textContent = "Upload";
+      progress.hidden = true;
+      var data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (e) {}
+      if (xhr.status === 200) { render(data); form.reset(); }
+      else if (xhr.status === 413) showError(data.message || "That file is too large.");
+      else if (data.error === "expired") window.location.href = "/?error=expired";
+      else showError(data.message || ("Upload failed (" + xhr.status + ")."));
+    };
+    xhr.onerror = function () {
+      button.disabled = false;
+      button.textContent = "Upload";
+      progress.hidden = true;
+      showError("Upload failed. Check your connection and try again.");
+    };
+    xhr.send(new FormData(form));
+  });
+})();
+</script>
+{% endblock %}
