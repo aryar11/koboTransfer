@@ -13,9 +13,9 @@ services:
       # Point DATA_PATH at your TrueNAS dataset, e.g. /mnt/tank/apps/kobosend
       - ${DATA_PATH:-./data}:/data
     ports:
-      # Loopback only: the reverse proxy terminates TLS and forwards here.
-      # If your proxy runs in another container, drop this and join its network instead.
-      - "127.0.0.1:${HOST_PORT:-8080}:8080"
+      # Loopback by default. Set HOST_BIND=0.0.0.0 if your reverse proxy runs in
+      # another container/app and reaches this via the NAS IP.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:8080"
     user: "${APP_UID:-568}:${APP_GID:-568}"
     read_only: true
     tmpfs:
