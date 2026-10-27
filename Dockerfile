@@ -18,7 +18,9 @@ COPY app ./app
 COPY templates ./templates
 COPY static ./static
 
-RUN mkdir -p /data && chown app:app /data
+# Build contexts on TrueNAS datasets are often owner-only (ACL/umask); the app runs as non-root.
+RUN chmod -R a+rX /app \
+    && mkdir -p /data && chown app:app /data
 USER app
 VOLUME /data
 EXPOSE 8080
