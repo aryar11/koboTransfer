@@ -26,7 +26,8 @@
   <progress id="progress" max="100" value="0" hidden></progress>
 </form>
 
-<p class="small">Code expires in <span id="expires">{{ status.expires_in }}</span>. A new upload replaces the current file.
+<p class="small"><span id="expires-label">{% if status.state == "waiting" %}New code in{% else %}Book available for{% endif %}</span>
+  <span id="expires">{{ status.expires_in }}</span>. A new upload replaces the current file.
   <a href="/">Refresh</a></p>
 
 <form method="post" action="/new">
@@ -39,6 +40,22 @@
   var statusEl = document.getElementById("status");
   var errorEl = document.getElementById("error");
   var expiresEl = document.getElementById("expires");
+  var expiresLabel = document.getElementById("expires-label");
+  var deadline = Date.now() + {{ status.expires_in_seconds | tojson }} * 1000;
+  var uploading = false;
+
+  function formatLeft(sec) {
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (h) return h + "h " + m + "m";
+    return m + "m " + (s < 10 ? "0" : "") + s + "s";
+  }
+
+  function tick() {
+    var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    expiresEl.textContent = formatLeft(left);
+    if (left === 0 && !uploading) window.location.href = "/";
+  }
+  setInterval(tick, 1000);
   var form = document.getElementById("upload-form");
   var button = document.getElementById("upload-button");
   var progress = document.getElementById("progress");
@@ -55,10 +72,11 @@
     else if (s.state === "ready") html = "Ready: <strong>" + escapeHtml(s.name) + "</strong> (" + escapeHtml(s.size) + "). Waiting for Kobo.";
     else if (s.state === "downloaded") html = "Downloaded " + s.downloads + "&times;: <strong>" + escapeHtml(s.name) + "</strong>.";
     else if (s.state === "consumed") html = "Downloaded and removed.";
-    else { window.location.href = "/?error=expired"; return; }
+    else { if (!uploading) window.location.href = "/"; return; }
     statusEl.className = "status status-" + s.state;
     statusEl.innerHTML = html;
-    if (s.expires_in) expiresEl.textContent = s.expires_in;
+    expiresLabel.textContent = s.state === "waiting" ? "New code in" : "Book available for";
+    if (typeof s.expires_in_seconds === "number") deadline = Date.now() + s.expires_in_seconds * 1000;
   }
 
   function showError(msg) {
@@ -80,6 +98,7 @@
     var input = document.getElementById("file");
     if (!input.files.length) { showError("Choose a file first."); return; }
     errorEl.hidden = true;
+    uploading = true;
     button.disabled = true;
     button.textContent = "Uploading…";
     progress.hidden = false;
@@ -92,6 +111,7 @@
       if (e.lengthComputable) progress.value = Math.round((e.loaded / e.total) * 100);
     };
     xhr.onload = function () {
+      uploading = false;
       button.disabled = false;
       button.textContent = "Upload";
       progress.hidden = true;
@@ -103,6 +123,7 @@
       else showError(data.message || ("Upload failed (" + xhr.status + ")."));
     };
     xhr.onerror = function () {
+      uploading = false;
       button.disabled = false;
       button.textContent = "Upload";
       progress.hidden = true;

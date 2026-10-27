@@ -36,6 +36,7 @@ def _env_extensions(name: str, default: str) -> tuple[str, ...]:
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path
+    code_ttl_minutes: float
     room_ttl_hours: float
     max_upload_mb: int
     allowed_extensions: tuple[str, ...]
@@ -61,6 +62,10 @@ class Settings:
         return self.max_upload_mb * 1024 * 1024
 
     @property
+    def code_ttl_seconds(self) -> int:
+        return int(self.code_ttl_minutes * 60)
+
+    @property
     def room_ttl_seconds(self) -> int:
         return int(self.room_ttl_hours * 3600)
 
@@ -68,6 +73,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         data_dir=Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data"))),
+        code_ttl_minutes=_env_float("CODE_TTL_MINUTES", 5),
         room_ttl_hours=_env_float("ROOM_TTL_HOURS", 24),
         max_upload_mb=_env_int("MAX_UPLOAD_MB", 80),
         allowed_extensions=_env_extensions("ALLOWED_EXTENSIONS", ".epub,.pdf,.kepub.epub"),

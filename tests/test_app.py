@@ -157,5 +157,24 @@ def test_rate_limit():
     assert limiter.allow("b")
 
 
+def test_unused_code_lasts_five_minutes_then_upload_extends(phone):
+    code = room_code(phone)
+    left = phone.get(f"/api/rooms/{code}/status").json()["expires_in_seconds"]
+    assert 280 <= left <= 300
+    upload(phone, code, "keep.epub")
+    assert phone.get(f"/api/rooms/{code}/status").json()["expires_in_seconds"] > 23 * 3600
+
+
+def test_cookie_survives_plain_http_with_cookie_secure(monkeypatch):
+    monkeypatch.setattr(main, "settings", main.settings.__class__(**{**main.settings.__dict__, "cookie_secure": True}))
+    client = TestClient(main.app, base_url="http://nas.local:8085")
+    r = client.get("/")
+    assert "secure" not in r.headers["set-cookie"].lower()
+    assert room_code(client) == room_code(client)
+
+    https = TestClient(main.app, base_url="https://books.example.com")
+    assert "secure" in https.get("/").headers["set-cookie"].lower()
+
+
 def test_healthz(kobo):
     assert kobo.get("/healthz").json() == {"status": "ok"}

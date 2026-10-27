@@ -5,7 +5,7 @@ A small self-hosted relay for getting EPUB/PDF files onto a Kobo using its built
 1. On a phone or PC, open the site. You get a 4-character code. Upload a book.
 2. On the Kobo, open `https://books.example.com/get`, enter the code, and tap **Download**.
 
-There are no accounts and no third-party services. Files stay on your volume until the code expires (24 h by default, reset on each upload) or, optionally, until the first download.
+There are no accounts and no third-party services. An unused code rotates every 5 minutes. After an upload, the file stays on your volume for 24 hours (or, optionally, until the first download).
 
 ## Routes
 
@@ -29,13 +29,14 @@ Copy `.env.example` to `.env` and adjust. All settings:
 | Variable | Default | Notes |
 |----------|---------|-------|
 | `DATA_PATH` | `./data` | Host path mounted at `/data` (compose only) |
-| `ROOM_TTL_HOURS` | `24` | Code lifetime; reset on each upload |
+| `CODE_TTL_MINUTES` | `5` | An unused code rotates to a new one after this long |
+| `ROOM_TTL_HOURS` | `24` | How long a code and its file live after an upload |
 | `MAX_UPLOAD_MB` | `80` | Keep the proxy body limit above this |
 | `ALLOWED_EXTENSIONS` | `.epub,.pdf,.kepub.epub` | |
 | `DELETE_AFTER_DOWNLOAD` | `false` | Remove the file after the first complete download |
 | `LOOKUP_RATE_LIMIT_PER_MIN` | `30` | Per client IP, across `/r/` and `/d/`; `0` disables |
 | `CLEANUP_INTERVAL_SECONDS` | `300` | Expired-room sweep interval |
-| `COOKIE_SECURE` | `false` | Set `true` when served only over HTTPS |
+| `COOKIE_SECURE` | `false` | Mark the room cookie Secure on HTTPS requests (ignored on plain HTTP) |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxy IPs whose `X-Forwarded-For` is trusted |
 
 Data layout inside `/data`: `app.db` (SQLite metadata), `files/` (uploaded blobs, stored under random names), `tmp/` (upload spooling).

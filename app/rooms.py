@@ -77,10 +77,11 @@ class Room:
 
 
 class RoomStore:
-    def __init__(self, db_path: Path, files_dir: Path, ttl_seconds: int):
+    def __init__(self, db_path: Path, files_dir: Path, code_ttl_seconds: int, file_ttl_seconds: int):
         self.db_path = db_path
         self.files_dir = files_dir
-        self.ttl_seconds = ttl_seconds
+        self.code_ttl_seconds = code_ttl_seconds
+        self.file_ttl_seconds = file_ttl_seconds
         self.files_dir.mkdir(parents=True, exist_ok=True)
         with self._conn() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
@@ -120,9 +121,9 @@ class RoomStore:
                 token = secrets.token_urlsafe(24)
                 conn.execute(
                     "INSERT INTO rooms (code, owner_token, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                    (code, token, now, now + self.ttl_seconds),
+                    (code, token, now, now + self.code_ttl_seconds),
                 )
-            return Room(code, token, now, now + self.ttl_seconds, None, None, None, None, None, None, 0)
+            return Room(code, token, now, now + self.code_ttl_seconds, None, None, None, None, None, None, 0)
         raise RuntimeError("Could not allocate a free room code")
 
     def get_active(self, code: str) -> Room | None:
@@ -137,6 +138,14 @@ class RoomStore:
         if room is None or not secrets.compare_digest(room.owner_token, token):
             return None
         return room
+
+    def extend(self, code: str, min_seconds: int) -> None:
+        now = time.time()
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE rooms SET expires_at = MAX(expires_at, ?) WHERE code = ? AND expires_at > ?",
+                (now + min_seconds, code, now),
+            )
 
     def delete_room(self, code: str) -> None:
         with self._conn() as conn:
@@ -178,7 +187,7 @@ class RoomStore:
                 """UPDATE rooms SET original_name = ?, safe_name = ?, stored_name = ?, size = ?,
                        uploaded_at = ?, consumed_at = NULL, download_count = 0, expires_at = ?
                    WHERE code = ?""",
-                (original_name, safe_name, stored_name, size, now, now + self.ttl_seconds, code),
+                (original_name, safe_name, stored_name, size, now, now + self.file_ttl_seconds, code),
             )
         self._unlink(row["stored_name"])
         room = self.get_active(code)

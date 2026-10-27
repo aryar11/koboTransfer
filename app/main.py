@@ -33,7 +33,9 @@ settings.tmp_dir.mkdir(parents=True, exist_ok=True)
 # Multipart uploads spool to disk; the container's root FS (and /tmp) is read-only/small.
 tempfile.tempdir = str(settings.tmp_dir)
 
-store = RoomStore(settings.db_path, settings.files_dir, settings.room_ttl_seconds)
+store = RoomStore(
+    settings.db_path, settings.files_dir, settings.code_ttl_seconds, settings.room_ttl_seconds
+)
 lookup_limiter = RateLimiter(settings.lookup_rate_limit_per_min)
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -82,10 +84,16 @@ def human_size(num_bytes: int | None) -> str:
     return f"{num_bytes / (1024 * 1024):.1f} MB"
 
 
+def seconds_left(expires_at: float) -> int:
+    return max(0, int(expires_at - time.time()))
+
+
 def human_remaining(expires_at: float) -> str:
-    minutes = max(0, int((expires_at - time.time()) // 60))
+    minutes, seconds = divmod(seconds_left(expires_at), 60)
     hours, minutes = divmod(minutes, 60)
-    return f"{hours}h {minutes}m" if hours else f"{minutes}m"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m {seconds:02d}s"
 
 
 def room_from_cookie(request: Request) -> Room | None:
@@ -97,14 +105,16 @@ def room_from_cookie(request: Request) -> Room | None:
     return store.get_owned(code, token)
 
 
-def set_owner_cookie(response: Response, room: Room) -> None:
+def set_owner_cookie(request: Request, response: Response, room: Room) -> None:
     response.set_cookie(
         OWNER_COOKIE,
         f"{room.code}:{room.owner_token}",
-        max_age=max(60, int(room.expires_at - time.time())),
+        max_age=max(1, seconds_left(room.expires_at)),
         httponly=True,
         samesite="lax",
-        secure=settings.cookie_secure,
+        # Browsers drop Secure cookies on plain-HTTP pages (e.g. http://NAS-IP:port),
+        # which would mint a new room on every request.
+        secure=settings.cookie_secure and request.url.scheme == "https",
     )
 
 
@@ -117,6 +127,7 @@ def status_payload(room: Room) -> dict:
         "size": human_size(room.size) if room.size else None,
         "downloads": room.download_count,
         "expires_in": human_remaining(room.expires_at),
+        "expires_in_seconds": seconds_left(room.expires_at),
     }
 
 
@@ -142,7 +153,7 @@ def uploader(request: Request, error: str | None = None):
             "host": request.headers.get("host", request.url.netloc),
         },
     )
-    set_owner_cookie(response, room)
+    set_owner_cookie(request, response, room)
     return response
 
 
@@ -153,7 +164,7 @@ def new_room(request: Request):
         store.delete_room(old.code)
     room = store.create_room()
     response = RedirectResponse("/", status_code=303)
-    set_owner_cookie(response, room)
+    set_owner_cookie(request, response, room)
     return response
 
 
@@ -174,6 +185,7 @@ async def upload(request: Request, code: str):
     if declared.isdigit() and int(declared) > settings.max_upload_bytes + MULTIPART_OVERHEAD:
         return upload_error(request, "too_large", 413)
 
+    store.extend(norm, settings.code_ttl_seconds)
     form = await request.form(max_files=1, max_fields=4)
     try:
         upload_file = form.get("file")
@@ -201,7 +213,7 @@ async def upload(request: Request, code: str):
         response: Response = JSONResponse(status_payload(room))
     else:
         response = RedirectResponse("/", status_code=303)
-    set_owner_cookie(response, room)
+    set_owner_cookie(request, response, room)
     return response
 
 
